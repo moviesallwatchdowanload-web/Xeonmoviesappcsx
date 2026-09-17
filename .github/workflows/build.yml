@@ -1,4 +1,4 @@
-name: XeonMovies Build
+name: XeonMovies CloudStream Repository
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -23,12 +23,6 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: gradle
-
-      - name: Check Android SDK
-        run: |
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
-          adb version || true
 
       - name: Create local.properties
         env:
@@ -50,31 +44,79 @@ jobs:
       - name: Make Gradle executable
         run: chmod +x gradlew
 
-      - name: Build
-        run: ./gradlew assembleRelease --stacktrace --no-daemon
-
-      - name: Show ALL Build Outputs
+      - name: Build CloudStream Plugins
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
-          echo "================================"
-          echo "APK FILES"
-          echo "================================"
-          find . -type f -name "*.apk" -print || true
+          ./gradlew make makePluginsJson --stacktrace --no-daemon
 
-          echo "================================"
-          echo "AAR FILES"
-          echo "================================"
-          find . -type f -name "*.aar" -print || true
+      - name: Create repo.json
+        run: |
+          cat > repo.json <<'EOF'
+          {
+            "name": "XeonMovies",
+            "description": "XeonMovies CloudStream Extensions",
+            "manifestVersion": 1,
+            "pluginLists": [
+              "https://raw.githubusercontent.com/moviesallwatchdowanload-web/Xeonmoviesappcsx/builds/plugins.json"
+            ]
+          }
+          EOF
 
-          echo "================================"
-          echo "BUILD OUTPUT DIRECTORIES"
-          echo "================================"
-          find . -type d -path "*/build/outputs/*" -print || true
+      - name: Find Generated Files
+        run: |
+          echo "===== CS3 FILES ====="
+          find . -type f -name "*.cs3" -print
 
-      - name: Upload Build Outputs
-        uses: actions/upload-artifact@v4
-        with:
-          name: XeonMovies-Build-Outputs
-          path: |
-            **/build/outputs/**/*.apk
-            **/build/outputs/**/*.aar
-          if-no-files-found: error
+          echo "===== PLUGINS JSON ====="
+          find . -type f -name "plugins.json" -print
+
+          echo "===== REPO JSON ====="
+          cat repo.json
+
+      - name: Prepare Builds Branch
+        run: |
+          mkdir -p /tmp/builds-repo
+
+          git fetch origin builds || true
+
+          if git ls-remote --exit-code --heads origin builds >/dev/null 2>&1; then
+            git worktree add /tmp/builds-repo origin/builds
+          else
+            git worktree add --detach /tmp/builds-repo
+            cd /tmp/builds-repo
+            git checkout --orphan builds
+            git rm -rf . 2>/dev/null || true
+          fi
+
+      - name: Publish CloudStream Repository
+        run: |
+          rm -rf /tmp/builds-repo/*
+          rm -rf /tmp/builds-repo/.[!.]* /tmp/builds-repo/..?* 2>/dev/null || true
+
+          find . -type f -name "*.cs3" -exec cp {} /tmp/builds-repo/ \;
+
+          PLUGINS_JSON=$(find . -type f -name "plugins.json" | head -n 1)
+
+          if [ -z "$PLUGINS_JSON" ]; then
+            echo "ERROR: plugins.json was not generated"
+            exit 1
+          fi
+
+          cp "$PLUGINS_JSON" /tmp/builds-repo/plugins.json
+          cp repo.json /tmp/builds-repo/repo.json
+
+          cd /tmp/builds-repo
+
+          echo "===== BUILDS BRANCH ====="
+          ls -lah
+
+          echo "===== plugins.json ====="
+          cat plugins.json
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+          git commit -m "Build CloudStream plugins" || echo "Nothing to commit"
+          git push origin HEAD:builds --force
