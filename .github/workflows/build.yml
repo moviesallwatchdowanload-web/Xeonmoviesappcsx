@@ -2,7 +2,6 @@ name: XeonMovies APK Build
 
 on:
   workflow_dispatch:
-
   push:
     branches:
       - main
@@ -42,7 +41,6 @@ jobs:
           MOVIEBLAST_KEY: ${{ secrets.MOVIEBLAST_KEY }}
         run: |
           touch local.properties
-
           echo "SIMKL_API=$SIMKL_API" >> local.properties
           echo "TMDB_KEY=$TMDB_KEY" >> local.properties
           echo "CASTLE_KEY=$CASTLE_KEY" >> local.properties
@@ -53,22 +51,20 @@ jobs:
       - name: Make Gradle executable
         run: chmod +x gradlew
 
-      - name: Show Gradle Tasks
-        run: ./gradlew tasks --all
-
-      - name: Build Release APK
+      - name: Build Release
         run: ./gradlew assembleRelease --stacktrace --no-daemon
 
-      - name: Find APK
+      - name: Find APK and AAR
         run: |
           echo "===== APK FILES ====="
           find . -type f -name "*.apk" -print
+          echo "===== AAR FILES ====="
+          find . -type f -name "*.aar" -print
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: XeonMovies-APK
           path: |
-            **/build/outputs/apk/**/*.apk
-            **/build/outputs/apk/*.apk
+            **/*.apk
           if-no-files-found: error
