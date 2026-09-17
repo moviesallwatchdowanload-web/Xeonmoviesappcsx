@@ -1,4 +1,4 @@
-name: Build APK
+name: XeonMovies APK Build
 
 on:
   workflow_dispatch:
@@ -25,27 +25,49 @@ jobs:
           java-version: '17'
           cache: gradle
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v4
-        with:
-          packages: |
-            platform-tools
-            platforms;android-35
-            build-tools;35.0.0
+      - name: Check Android SDK
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          adb version || true
+          ls -la "$ANDROID_HOME" || true
+
+      - name: Create local.properties
+        env:
+          SIMKL_API: ${{ secrets.SIMKL_API }}
+          TMDB_KEY: ${{ secrets.TMDB_KEY }}
+          CASTLE_KEY: ${{ secrets.CASTLE_KEY }}
+          MOVIEBLAST_TOKEN: ${{ secrets.MOVIEBLAST_TOKEN }}
+          MOVIEBLAST_API: ${{ secrets.MOVIEBLAST_API }}
+          MOVIEBLAST_KEY: ${{ secrets.MOVIEBLAST_KEY }}
+        run: |
+          touch local.properties
+
+          echo "SIMKL_API=$SIMKL_API" >> local.properties
+          echo "TMDB_KEY=$TMDB_KEY" >> local.properties
+          echo "CASTLE_KEY=$CASTLE_KEY" >> local.properties
+          echo "MOVIEBLAST_TOKEN=$MOVIEBLAST_TOKEN" >> local.properties
+          echo "MOVIEBLAST_API=$MOVIEBLAST_API" >> local.properties
+          echo "MOVIEBLAST_KEY=$MOVIEBLAST_KEY" >> local.properties
 
       - name: Make Gradle executable
         run: chmod +x gradlew
 
-      - name: Build APK
-        run: ./gradlew assembleRelease --stacktrace
+      - name: Show Gradle Tasks
+        run: ./gradlew tasks --all
+
+      - name: Build Release APK
+        run: ./gradlew assembleRelease --stacktrace --no-daemon
 
       - name: Find APK
-        run: find . -type f -name "*.apk" -print
+        run: |
+          echo "===== APK FILES ====="
+          find . -type f -name "*.apk" -print
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: CSX-APK
+          name: XeonMovies-APK
           path: |
             **/build/outputs/apk/**/*.apk
             **/build/outputs/apk/*.apk
