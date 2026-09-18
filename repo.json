@@ -3,6 +3,6 @@
   "description": "XeonMovies CloudStream Extensions",
   "manifestVersion": 1,
   "pluginLists": [
-    "https://raw.githubusercontent.com/moviesallwatchdowanload-web/Xeonmoviesappcsx/builds/repo.json"
+    "https://raw.githubusercontent.com/moviesallwatchdowanload-web/Xeonmoviesappcsx/builds/plugins.json"
   ]
 }
